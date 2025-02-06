@@ -30,6 +30,16 @@ export default definePlugin({
         "Keeps you connected to voice channels and auto-rejoins if disconnected or on client refresh",
     authors: [Devs.okiso],
     settings,
+    patches: [
+        {
+            // Target the voice reconnect prompt module
+            find: '"jY2lUF"',
+            replacement: {
+                match: /(\i\."jY2lUF")/,
+                replace: "$1&&(()=>{window.VoiceService?.reconnectToVoice()})(),"
+            }
+        }
+    ],
 
     // Internal state
     monitorInterval: null as NodeJS.Timeout | null,
@@ -39,7 +49,7 @@ export default definePlugin({
 
     flux: {
         // Listen for voice state updates
-        VOICE_STATE_UPDATES({ updates }: { updates: any[] }) {
+        VOICE_STATE_UPDATES({ updates }: { updates: any[]; }) {
             // If user manually disconnected (channelId is null), set the flag
             if (updates.some(u => u.channelId === null)) {
                 this.wasManuallyDisconnected = true;
@@ -119,25 +129,25 @@ export default definePlugin({
         const maxDelay = 60000; // Cap the delay at 60 seconds.
         const baseDelay = settings.autoRejoinDelay.default;
         const attemptRejoin = (attempt: number = 0) => {
-          console.log(`[AlwaysConnected] Rejoining voice channel (Attempt ${attempt + 1}):`, channelId);
-          try {
-            if (window.VoiceService && typeof window.VoiceService.join === "function") {
-              window.VoiceService.join(channelId);
+            console.log(`[AlwaysConnected] Rejoining voice channel (Attempt ${attempt + 1}):`, channelId);
+            try {
+                if (window.VoiceService && typeof window.VoiceService.join === "function") {
+                    window.VoiceService.join(channelId);
+                }
+            } catch (err) {
+                console.error("[AlwaysConnected] Auto-rejoin error on attempt", attempt + 1, ":", err);
             }
-          } catch (err) {
-            console.error("[AlwaysConnected] Auto-rejoin error on attempt", attempt + 1, ":", err);
-          }
-          // If we're still disconnected, schedule another attempt.
-          setTimeout(() => {
-            if (!this.isConnected()) {
-              const delay = Math.min(baseDelay * (attempt + 1), maxDelay);
-              console.log(`[AlwaysConnected] Still disconnected. Retrying in ${delay}ms...`);
-              attemptRejoin(attempt + 1);
-            } else {
-              console.log("[AlwaysConnected] Successfully reconnected to voice channel:", channelId);
-            }
-          }, Math.min(baseDelay * (attempt + 1), maxDelay));
+            // If we're still disconnected, schedule another attempt.
+            setTimeout(() => {
+                if (!this.isConnected()) {
+                    const delay = Math.min(baseDelay * (attempt + 1), maxDelay);
+                    console.log(`[AlwaysConnected] Still disconnected. Retrying in ${delay}ms...`);
+                    attemptRejoin(attempt + 1);
+                } else {
+                    console.log("[AlwaysConnected] Successfully reconnected to voice channel:", channelId);
+                }
+            }, Math.min(baseDelay * (attempt + 1), maxDelay));
         };
         attemptRejoin();
-      },
+    },
 });
