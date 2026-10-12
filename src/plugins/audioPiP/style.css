@@ -2,7 +2,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 100;
+    z-index: 200; /* above the sidebar resize handle (101), below popouts and modals (1002) */
     cursor: grab;
     user-select: none;
     touch-action: none;

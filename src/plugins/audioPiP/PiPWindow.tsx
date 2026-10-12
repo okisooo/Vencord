@@ -131,7 +131,8 @@ export function PiPWindow() {
     const canJump = track.channelId != null && track.messageId != null;
 
     function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-        if (e.button !== 0 || gesture.current) return;
+        // a pending gesture whose pointerup happened outside the window would otherwise block all future gestures
+        if (e.button !== 0 || gesture.current?.active) return;
 
         const target = e.target as HTMLElement;
         const isResize = target.classList.contains(cl("resizer"));
@@ -170,18 +171,28 @@ export function PiPWindow() {
         return next;
     }
 
+    function activateGesture(g: Gesture, e: React.PointerEvent<HTMLDivElement>) {
+        g.active = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        setIsSnapping(false);
+        applyGesture(g, e);
+    }
+
     function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
         const g = gesture.current;
         if (!g || g.pointerId !== e.pointerId) return;
 
-        if (!g.active) {
-            if (Math.hypot(e.clientX - g.startX, e.clientY - g.startY) < DRAG_THRESHOLD) return;
-            g.active = true;
-            e.currentTarget.setPointerCapture(e.pointerId);
-            setIsSnapping(false);
-        }
+        if (g.active) applyGesture(g, e);
+        else if (Math.hypot(e.clientX - g.startX, e.clientY - g.startY) >= DRAG_THRESHOLD) activateGesture(g, e);
+    }
 
-        applyGesture(g, e);
+    function onPointerLeave(e: React.PointerEvent<HTMLDivElement>) {
+        const g = gesture.current;
+        if (!g || g.active || g.pointerId !== e.pointerId) return;
+
+        // a quick flick can leave the window before any pointermove reaches it
+        if (e.buttons & 1) activateGesture(g, e);
+        else gesture.current = null;
     }
 
     function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
@@ -225,6 +236,7 @@ export function PiPWindow() {
             }}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
+            onPointerLeave={onPointerLeave}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerUp}
             onTransitionEnd={e => e.target === e.currentTarget && setIsSnapping(false)}
