@@ -6,7 +6,7 @@
 
 import { classNameFactory } from "@api/Styles";
 import { useForceUpdater } from "@utils/react";
-import { MessageActions, React, useEffect, useRef, useState } from "@webpack/common";
+import { ChannelStore, NavigationRouter, React, useEffect, useRef, useState } from "@webpack/common";
 
 import { closeTrack, playerStore, seek, setVolume, toggleMute, togglePlayback } from "./player";
 import { Corner, Corners, settings } from "./settings";
@@ -218,12 +218,9 @@ export function PiPWindow() {
 
     function jumpToMessage() {
         if (!canJump) return;
-        MessageActions.jumpToMessage({
-            channelId: track!.channelId,
-            messageId: track!.messageId,
-            flash: true,
-            jumpType: "INSTANT"
-        });
+        // MessageActions.jumpToMessage only scrolls within the current channel, so navigate via the message route instead
+        const guildId = ChannelStore.getChannel(track!.channelId!)?.guild_id ?? "@me";
+        NavigationRouter.transitionTo(`/channels/${guildId}/${track!.channelId}/${track!.messageId}`);
     }
 
     return (
